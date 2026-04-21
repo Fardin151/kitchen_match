@@ -444,7 +444,7 @@ class _StepsTabState extends State<_StepsTab> {
       children: [
         Expanded(
           child: ListView.separated(
-            physics: const NeverScrollableScrollPhysics(),
+            physics: const ClampingScrollPhysics(),
             itemCount: steps.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, i) {
