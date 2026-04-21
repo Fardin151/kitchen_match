@@ -20,6 +20,7 @@ dependencies:
   iconsax: ^0.0.8
   shimmer: ^3.0.0
   gap: ^3.0.1
+  http: ^1.2.0
 
 dev_dependencies:
   flutter_test:

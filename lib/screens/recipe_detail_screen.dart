@@ -5,6 +5,7 @@ import '../providers/pantry_provider.dart';
 import '../providers/recipe_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
+import '../services/spoonacular_service.dart';
 
 class RecipeDetailScreen extends ConsumerStatefulWidget {
   final Recipe recipe;
@@ -373,15 +374,78 @@ class _StepsTab extends StatefulWidget {
 
 class _StepsTabState extends State<_StepsTab> {
   int _currentStep = 0;
+  List<String>? _fetchedSteps;
+  bool _loading = false;
+  String? _error;
+
+  bool get _isApiRecipe => widget.recipe.id.startsWith('sp_');
+
+  @override
+  void initState() {
+    super.initState();
+    if (_isApiRecipe && widget.recipe.steps.isEmpty) {
+      _fetchSteps();
+    }
+  }
+
+  Future<void> _fetchSteps() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final full = await SpoonacularService().getRecipeDetails(widget.recipe.id);
+      if (mounted) {
+        setState(() {
+          _fetchedSteps = full.steps;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = 'Could not load steps. Check your connection.';
+          _loading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final steps = _fetchedSteps ?? widget.recipe.steps;
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('😕', style: TextStyle(fontSize: 40)),
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: AppColors.textSecondary)),
+            const SizedBox(height: 16),
+            OutlinedButton(onPressed: _fetchSteps, child: const Text('Retry')),
+          ],
+        ),
+      );
+    }
+
+    if (steps.isEmpty) {
+      return const Center(
+        child: Text(
+          'No steps available for this recipe.',
+          style: TextStyle(color: AppColors.textSecondary),
+        ),
+      );
+    }
+
     return Column(
       children: [
         Expanded(
           child: ListView.separated(
             physics: const NeverScrollableScrollPhysics(),
-            itemCount: widget.recipe.steps.length,
+            itemCount: steps.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (_, i) {
               final isDone = i < _currentStep;
@@ -414,8 +478,7 @@ class _StepsTabState extends State<_StepsTab> {
                           shape: BoxShape.circle,
                         ),
                         child: isDone
-                            ? const Icon(Icons.check_rounded,
-                                size: 14, color: Colors.white)
+                            ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
                             : Center(
                                 child: Text(
                                   '${i + 1}',
@@ -430,13 +493,11 @@ class _StepsTabState extends State<_StepsTab> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          widget.recipe.steps[i],
+                          steps[i],
                           style: TextStyle(
                             fontSize: 14,
                             height: 1.5,
-                            color: isDone
-                                ? AppColors.textMuted
-                                : AppColors.textPrimary,
+                            color: isDone ? AppColors.textMuted : AppColors.textPrimary,
                             decoration: isDone ? TextDecoration.lineThrough : null,
                             decorationColor: AppColors.textMuted,
                           ),
@@ -459,34 +520,29 @@ class _StepsTabState extends State<_StepsTab> {
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.cardBorder),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('Back',
-                      style: TextStyle(color: AppColors.textSecondary)),
+                  child: const Text('Back', style: TextStyle(color: AppColors.textSecondary)),
                 ),
               ),
             if (_currentStep > 0) const SizedBox(width: 10),
             Expanded(
               flex: 2,
               child: ElevatedButton(
-                onPressed: _currentStep < widget.recipe.steps.length - 1
+                onPressed: _currentStep < steps.length - 1
                     ? () => setState(() => _currentStep++)
                     : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.green,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   elevation: 0,
                   disabledBackgroundColor: AppColors.greenLight,
                   disabledForegroundColor: AppColors.green,
                 ),
                 child: Text(
-                  _currentStep < widget.recipe.steps.length - 1
-                      ? 'Next step'
-                      : '🎉 Done!',
+                  _currentStep < steps.length - 1 ? 'Next step' : '🎉 Done!',
                   style: const TextStyle(fontWeight: FontWeight.w500),
                 ),
               ),

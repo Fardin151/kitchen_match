@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/recipe.dart';
 import 'pantry_provider.dart';
+import '../services/spoonacular_service.dart';
 
 // ── Raw recipe loader ────────────────────────────────────────────────────────
 
@@ -149,3 +150,18 @@ final savedRecipesProvider =
     NotifierProvider<SavedRecipesNotifier, Set<String>>(
   SavedRecipesNotifier.new,
 );
+
+
+// Singleton service
+final spoonacularServiceProvider = Provider((_) => SpoonacularService());
+
+// Search query state
+final apiSearchQueryProvider = StateProvider<String>((_) => '');
+
+// Fetches results whenever query changes
+final apiRecipesProvider = FutureProvider<List<Recipe>>((ref) async {
+  final query = ref.watch(apiSearchQueryProvider);
+  if (query.isEmpty) return [];
+  final service = ref.read(spoonacularServiceProvider);
+  return service.searchRecipes(query);
+});
