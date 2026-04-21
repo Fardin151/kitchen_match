@@ -18,17 +18,74 @@ class RecipeDetailScreen extends ConsumerStatefulWidget {
 class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  late int _servings;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _servings = widget.recipe.servings;
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // ── Quantity scaling ──────────────────────────────────────────────────────
+  /// Tries to parse a leading numeric value (int, decimal, fraction, unicode
+  /// vulgar fraction) from [qty], multiplies it by [factor], then re-assembles
+  /// with the trailing unit/descriptor unchanged.
+  ///
+  /// Falls back to the original string when there is nothing numeric to scale
+  /// (e.g. "to taste", "handful", "for brushing").
+  String _scale(String qty, double factor) {
+    if (factor == 1.0) return qty;
+
+    // Map unicode vulgar fractions → decimal strings so the parser can read them
+    const vulgar = {
+      '½': '1/2', '⅓': '1/3', '⅔': '2/3',
+      '¼': '1/4', '¾': '3/4', '⅕': '1/5',
+      '⅖': '2/5', '⅗': '3/5', '⅘': '4/5',
+      '⅙': '1/6', '⅚': '5/6', '⅛': '1/8',
+      '⅜': '3/8', '⅝': '5/8', '⅞': '7/8',
+    };
+    String normalised = qty;
+    vulgar.forEach((glyph, ascii) {
+      normalised = normalised.replaceAll(glyph, ascii);
+    });
+
+    // Regex: optional leading fraction OR decimal, followed by optional unit
+    final pattern = RegExp(
+      r'^(\d+/\d+|\d+(?:\.\d+)?)'  // number (fraction or decimal)
+      r'(.*)',                       // rest (unit + descriptor)
+    );
+    final m = pattern.firstMatch(normalised.trim());
+    if (m == null) return qty; // nothing numeric — return original
+
+    final rawNum = m.group(1)!;
+    final rest = m.group(2) ?? '';
+
+    double value;
+    if (rawNum.contains('/')) {
+      final parts = rawNum.split('/');
+      value = double.parse(parts[0]) / double.parse(parts[1]);
+    } else {
+      value = double.parse(rawNum);
+    }
+
+    final scaled = value * factor;
+
+    // Format: drop trailing zeros; keep up to 2 decimal places
+    String formatted;
+    if (scaled == scaled.roundToDouble()) {
+      formatted = scaled.round().toString();
+    } else {
+      formatted = scaled.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '').replaceAll(RegExp(r'\.$'), '');
+    }
+
+    return '$formatted$rest';
   }
 
   Color get _heroBg {
@@ -144,9 +201,14 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen>
                         icon: Icons.access_time_rounded,
                         label: '${widget.recipe.cookTimeMinutes} min',
                       ),
-                      _MetaBadge(
-                        icon: Icons.people_outline_rounded,
-                        label: '${widget.recipe.servings} servings',
+                      _ServingsScaler(
+                        servings: _servings,
+                        onDecrement: _servings > 1
+                            ? () => setState(() => _servings--)
+                            : null,
+                        onIncrement: _servings < 99
+                            ? () => setState(() => _servings++)
+                            : null,
                       ),
                       _MetaBadge(
                         icon: Icons.restaurant_rounded,
@@ -207,7 +269,12 @@ class _RecipeDetailScreenState extends ConsumerState<RecipeDetailScreen>
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    _IngredientsTab(recipe: widget.recipe, pantry: pantry),
+                    _IngredientsTab(
+                      recipe: widget.recipe,
+                      pantry: pantry,
+                      scaleFactor: _servings / widget.recipe.servings,
+                      scaleQty: _scale,
+                    ),
                     _StepsTab(recipe: widget.recipe),
                   ],
                 ),
@@ -254,7 +321,15 @@ class _MetaBadge extends StatelessWidget {
 class _IngredientsTab extends StatelessWidget {
   final Recipe recipe;
   final List<String> pantry;
-  const _IngredientsTab({required this.recipe, required this.pantry});
+  final double scaleFactor;
+  final String Function(String qty, double factor) scaleQty;
+
+  const _IngredientsTab({
+    required this.recipe,
+    required this.pantry,
+    required this.scaleFactor,
+    required this.scaleQty,
+  });
 
   bool _have(RecipeIngredient ing) =>
       pantry.any((p) => ing.name.toLowerCase().contains(p));
@@ -272,6 +347,8 @@ class _IngredientsTab extends StatelessWidget {
             title: 'You have (${have.length})',
             ingredients: have,
             hasItem: true,
+            scaleFactor: scaleFactor,
+            scaleQty: scaleQty,
           ),
           const SizedBox(height: 16),
         ],
@@ -280,12 +357,16 @@ class _IngredientsTab extends StatelessWidget {
             title: 'Still need (${missing.length})',
             ingredients: missing,
             hasItem: false,
+            scaleFactor: scaleFactor,
+            scaleQty: scaleQty,
           ),
         if (pantry.isEmpty)
           _IngredientGroup(
             title: 'All ingredients',
             ingredients: recipe.ingredients,
             hasItem: null,
+            scaleFactor: scaleFactor,
+            scaleQty: scaleQty,
           ),
       ],
     );
@@ -296,11 +377,15 @@ class _IngredientGroup extends StatelessWidget {
   final String title;
   final List<RecipeIngredient> ingredients;
   final bool? hasItem; // null = neutral (no pantry)
+  final double scaleFactor;
+  final String Function(String qty, double factor) scaleQty;
 
   const _IngredientGroup({
     required this.title,
     required this.ingredients,
     required this.hasItem,
+    required this.scaleFactor,
+    required this.scaleQty,
   });
 
   @override
@@ -318,7 +403,11 @@ class _IngredientGroup extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        ...ingredients.map((ing) => _IngredientRow(ing: ing, hasItem: hasItem)),
+        ...ingredients.map((ing) => _IngredientRow(
+              ing: ing,
+              hasItem: hasItem,
+              scaledQty: scaleQty(ing.quantity, scaleFactor),
+            )),
       ],
     );
   }
@@ -327,7 +416,8 @@ class _IngredientGroup extends StatelessWidget {
 class _IngredientRow extends StatelessWidget {
   final RecipeIngredient ing;
   final bool? hasItem;
-  const _IngredientRow({required this.ing, required this.hasItem});
+  final String scaledQty;
+  const _IngredientRow({required this.ing, required this.hasItem, required this.scaledQty});
 
   @override
   Widget build(BuildContext context) {
@@ -355,7 +445,7 @@ class _IngredientRow extends StatelessWidget {
             ),
           ),
           Text(
-            ing.quantity,
+            scaledQty,
             style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
           ),
         ],
@@ -550,6 +640,64 @@ class _StepsTabState extends State<_StepsTab> {
           ],
         ),
       ],
+    );
+  }
+}
+
+// ── Servings scaler badge ─────────────────────────────────────────────────────
+class _ServingsScaler extends StatelessWidget {
+  final int servings;
+  final VoidCallback? onDecrement;
+  final VoidCallback? onIncrement;
+
+  const _ServingsScaler({
+    required this.servings,
+    required this.onDecrement,
+    required this.onIncrement,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.cardBorder, width: 0.5),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: onDecrement,
+            child: Icon(
+              Icons.remove_rounded,
+              size: 16,
+              color: onDecrement != null
+                  ? AppColors.textSecondary
+                  : AppColors.cardBorder,
+            ),
+          ),
+          const SizedBox(width: 6),
+          const Icon(Icons.people_outline_rounded, size: 13, color: AppColors.textSecondary),
+          const SizedBox(width: 4),
+          Text(
+            '$servings serving${servings == 1 ? '' : 's'}',
+            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: onIncrement,
+            child: Icon(
+              Icons.add_rounded,
+              size: 16,
+              color: onIncrement != null
+                  ? AppColors.textSecondary
+                  : AppColors.cardBorder,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
