@@ -6,6 +6,7 @@ import '../providers/recipe_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/shared_widgets.dart';
 import '../services/spoonacular_service.dart';
+import '../providers/shopping_list_provider.dart';
 
 class RecipeDetailScreen extends ConsumerStatefulWidget {
   final Recipe recipe;
@@ -318,7 +319,7 @@ class _MetaBadge extends StatelessWidget {
   }
 }
 
-class _IngredientsTab extends StatelessWidget {
+class _IngredientsTab extends ConsumerWidget {
   final Recipe recipe;
   final List<String> pantry;
   final double scaleFactor;
@@ -335,9 +336,32 @@ class _IngredientsTab extends StatelessWidget {
       pantry.any((p) => ing.name.toLowerCase().contains(p));
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final have = recipe.ingredients.where(_have).toList();
     final missing = recipe.ingredients.where((i) => !_have(i)).toList();
+
+    void addMissingToCart() {
+      if (missing.isEmpty) return;
+      final added = ref
+          .read(shoppingListProvider.notifier)
+          .addAll(missing.map((i) => i.name).toList());
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            added == 0
+                ? 'Already on your list!'
+                : '$added item${added == 1 ? '' : 's'} added to shopping list',
+          ),
+          behavior: SnackBarBehavior.floating,
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          margin: const EdgeInsets.all(16),
+          backgroundColor: AppColors.textPrimary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -352,7 +376,7 @@ class _IngredientsTab extends StatelessWidget {
           ),
           const SizedBox(height: 16),
         ],
-        if (missing.isNotEmpty)
+        if (missing.isNotEmpty) ...[
           _IngredientGroup(
             title: 'Still need (${missing.length})',
             ingredients: missing,
@@ -360,6 +384,40 @@ class _IngredientsTab extends StatelessWidget {
             scaleFactor: scaleFactor,
             scaleQty: scaleQty,
           ),
+          const SizedBox(height: 14),
+          // ── Add missing → shopping list ─────────────────────────────────
+          GestureDetector(
+            onTap: addMissingToCart,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.cardBorder, width: 0.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.shopping_cart_outlined,
+                      size: 18, color: AppColors.green),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Add ${missing.length} missing item${missing.length == 1 ? '' : 's'} to shopping list',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.green,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_rounded,
+                      size: 16, color: AppColors.green),
+                ],
+              ),
+            ),
+          ),
+        ],
         if (pantry.isEmpty)
           _IngredientGroup(
             title: 'All ingredients',
