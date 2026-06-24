@@ -1,20 +1,25 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/recipe.dart';
+import '../secrets.dart' as secrets;
 
 class SpoonacularService {
-  // Provided at build/run time, never committed:
-  //   flutter run --dart-define=SPOONACULAR_KEY=your_key
-  static const _apiKey = String.fromEnvironment('SPOONACULAR_KEY');
   static const _base = 'https://api.spoonacular.com';
+
+  // Key comes from lib/secrets.dart (gitignored). A build-time
+  // --dart-define=SPOONACULAR_KEY=... overrides it when provided.
+  static const _overrideKey = String.fromEnvironment('SPOONACULAR_KEY');
+  static String get _apiKey =>
+      _overrideKey.isNotEmpty ? _overrideKey : secrets.spoonacularApiKey;
 
   static bool get hasApiKey => _apiKey.isNotEmpty;
 
   void _requireKey() {
     if (_apiKey.isEmpty) {
       throw Exception(
-        'No Spoonacular API key. Run with '
-        '--dart-define=SPOONACULAR_KEY=your_key to enable web search.',
+        'No Spoonacular API key. Copy lib/secrets.example.dart to '
+        'lib/secrets.dart and add your key (or pass '
+        '--dart-define=SPOONACULAR_KEY=...).',
       );
     }
   }

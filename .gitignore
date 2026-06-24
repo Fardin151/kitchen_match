@@ -33,6 +33,10 @@ migrate_working_dir/
 /build/
 /coverage/
 
+# Local secrets — real API keys live here, never commit.
+# Copy lib/secrets.example.dart to lib/secrets.dart and fill it in.
+lib/secrets.dart
+
 # Symbolication related
 app.*.symbols
 

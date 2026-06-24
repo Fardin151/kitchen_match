@@ -77,7 +77,14 @@ flutter run
 
 Requires Flutter 3.x and Dart ≥ 3.0.0. No API keys needed for the bundled recipes.
 
-The app optionally integrates with the Spoonacular API for the **Discover** tab. To enable it, pass your key at run/build time — it is never stored in source:
+The app optionally integrates with the Spoonacular API for the **Discover** tab. To enable it, add your key to a local secrets file (gitignored, so it never lands in version control):
+
+```bash
+cp lib/secrets.example.dart lib/secrets.dart
+# then edit lib/secrets.dart and paste your key
+```
+
+A build-time override also works and takes precedence if both are present:
 
 ```bash
 flutter run --dart-define=SPOONACULAR_KEY=your_key_here
