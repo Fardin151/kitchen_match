@@ -74,7 +74,15 @@ flutter pub get
 flutter run
 ```
 
-Requires Flutter 3.x and Dart ≥ 3.0.0. No API keys needed for the bundled recipes. The app optionally integrates with the Spoonacular API for extended search — add your key to `lib/services/spoonacular_service.dart` if you want that enabled.
+Requires Flutter 3.x and Dart ≥ 3.0.0. No API keys needed for the bundled recipes.
+
+The app optionally integrates with the Spoonacular API for the **Discover** tab. To enable it, pass your key at run/build time — it is never stored in source:
+
+```bash
+flutter run --dart-define=SPOONACULAR_KEY=your_key_here
+```
+
+Without a key, the bundled recipes work fully and the Discover tab shows a friendly "no key" message.
 
 ---
 

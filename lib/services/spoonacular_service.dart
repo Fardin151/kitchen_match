@@ -3,11 +3,25 @@ import 'package:http/http.dart' as http;
 import '../models/recipe.dart';
 
 class SpoonacularService {
-  static const _apiKey = '09ba2b9f60bd4991b4bf247070b2e055';
+  // Provided at build/run time, never committed:
+  //   flutter run --dart-define=SPOONACULAR_KEY=your_key
+  static const _apiKey = String.fromEnvironment('SPOONACULAR_KEY');
   static const _base = 'https://api.spoonacular.com';
+
+  static bool get hasApiKey => _apiKey.isNotEmpty;
+
+  void _requireKey() {
+    if (_apiKey.isEmpty) {
+      throw Exception(
+        'No Spoonacular API key. Run with '
+        '--dart-define=SPOONACULAR_KEY=your_key to enable web search.',
+      );
+    }
+  }
 
   // Search recipes by query (e.g. "pasta", "chicken")
   Future<List<Recipe>> searchRecipes(String query, {int number = 20}) async {
+    _requireKey();
     final uri = Uri.parse('$_base/recipes/complexSearch').replace(
       queryParameters: {
         'apiKey': _apiKey,
@@ -29,6 +43,7 @@ class SpoonacularService {
 
   // Fetch full recipe details by Spoonacular ID (used when steps are missing)
   Future<Recipe> getRecipeDetails(String recipeId) async {
+    _requireKey();
     // Strip the 'sp_' prefix we add locally
     final id = recipeId.replaceFirst('sp_', '');
 
@@ -48,6 +63,7 @@ class SpoonacularService {
 
   // Find recipes by ingredients you already have
   Future<List<Recipe>> findByIngredients(List<String> ingredients) async {
+    _requireKey();
     final uri = Uri.parse('$_base/recipes/findByIngredients').replace(
       queryParameters: {
         'apiKey': _apiKey,
