@@ -64,6 +64,30 @@ final recipeFilterProvider =
   RecipeFilterNotifier.new,
 );
 
+// ── Matching helper ──────────────────────────────────────────────────────────
+
+/// Whether [ingredientName] is covered by a pantry entry.
+///
+/// Single-word pantry terms match on word boundaries so "egg" no longer
+/// matches "eggplant"; multi-word terms (e.g. "olive oil") match as a phrase.
+/// Pantry entries are already stored lowercased.
+bool pantryCoversIngredient(String ingredientName, List<String> pantry) {
+  final lower = ingredientName.toLowerCase();
+  final words = lower
+      .split(RegExp(r'[^a-z0-9]+'))
+      .where((w) => w.isNotEmpty)
+      .toSet();
+  for (final p in pantry) {
+    if (p.isEmpty) continue;
+    if (p.contains(' ')) {
+      if (lower.contains(p)) return true;
+    } else if (words.contains(p)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // ── Matched & filtered recipes ───────────────────────────────────────────────
 
 final matchedRecipesProvider = Provider<AsyncValue<List<Recipe>>>((ref) {
@@ -77,7 +101,7 @@ final matchedRecipesProvider = Provider<AsyncValue<List<Recipe>>>((ref) {
       if (pantry.isEmpty) return recipe.copyWith(matchScore: 0, matchedCount: 0);
 
       final matched = recipe.ingredients
-          .where((ing) => pantry.any((p) => ing.name.toLowerCase().contains(p)))
+          .where((ing) => pantryCoversIngredient(ing.name, pantry))
           .length;
       final score = matched / recipe.ingredients.length;
       return recipe.copyWith(matchScore: score, matchedCount: matched);
@@ -89,8 +113,8 @@ final matchedRecipesProvider = Provider<AsyncValue<List<Recipe>>>((ref) {
       scored = scored
           .where((r) =>
               r.title.toLowerCase().contains(q) ||
-              r.tags.any((t) => t.contains(q)) ||
-              r.ingredients.any((i) => i.name.contains(q)))
+              r.tags.any((t) => t.toLowerCase().contains(q)) ||
+              r.ingredients.any((i) => i.name.toLowerCase().contains(q)))
           .toList();
     }
 
