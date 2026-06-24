@@ -93,11 +93,5 @@ Without a key, the bundled recipes work fully and the Discover tab shows a frien
 |---|---|
 | `flutter_riverpod` | State management |
 | `hive` / `hive_flutter` | Local persistence |
-| `flutter_svg` | SVG rendering (logo) |
 | `google_fonts` | Plus Jakarta Sans typeface |
-| `cached_network_image` | Network recipe images |
-| `shimmer` | Loading skeletons |
 | `http` | Spoonacular API calls |
-| `go_router` | Routing |
-| `gap` | Spacing utility |
-| `iconsax` | Icon set |
