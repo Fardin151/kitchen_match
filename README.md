@@ -63,6 +63,7 @@ All persistence uses Hive, opened before `runApp` in `main()`:
 |---|---|---|---|
 | `pantry` | `Box<String>` | auto | ingredient names |
 | `shopping_list` | `Box<String>` | auto | `"0\|name"` / `"1\|name"` (checked flag + name) |
+| `saved` | `Box<String>` | recipe id | bookmarked recipe ids (key == value) |
 | `prefs` | `Box<bool>` | `hasSeenOnboarding` | onboarding completion flag |
 
 ---

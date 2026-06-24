@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/recipe.dart';
 import 'pantry_provider.dart';
 import '../services/spoonacular_service.dart';
@@ -130,15 +131,25 @@ final topMatchesProvider = Provider<AsyncValue<List<Recipe>>>((ref) {
       );
 });
 
-// Saved recipe IDs
+// Saved recipe IDs — Hive-backed so bookmarks survive restarts.
+// The box is keyed by recipe id (value == id), so order never matters.
+const _savedBoxName = 'saved';
+
 class SavedRecipesNotifier extends Notifier<Set<String>> {
+  late Box<String> _box;
+
   @override
-  Set<String> build() => {};
+  Set<String> build() {
+    _box = Hive.box<String>(_savedBoxName);
+    return _box.values.toSet();
+  }
 
   void toggle(String id) {
     if (state.contains(id)) {
+      _box.delete(id);
       state = {...state}..remove(id);
     } else {
+      _box.put(id, id);
       state = {...state, id};
     }
   }
@@ -150,6 +161,10 @@ final savedRecipesProvider =
     NotifierProvider<SavedRecipesNotifier, Set<String>>(
   SavedRecipesNotifier.new,
 );
+
+Future<void> openSavedRecipesBox() async {
+  await Hive.openBox<String>(_savedBoxName);
+}
 
 
 // Singleton service

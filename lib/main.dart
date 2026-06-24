@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'providers/pantry_provider.dart';
 import 'providers/shopping_list_provider.dart';
+import 'providers/recipe_provider.dart';
 import 'screens/home_screen.dart';
 import 'screens/browse_screen.dart';
 import 'screens/saved_screen.dart';
@@ -18,6 +19,7 @@ void main() async {
   await Hive.initFlutter();
   await openPantryBox();
   await openShoppingListBox();
+  await openSavedRecipesBox();
   await Hive.openBox<bool>(_onboardingBox);
   runApp(const ProviderScope(child: KitchenMatchApp()));
 }
